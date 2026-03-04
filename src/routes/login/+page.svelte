@@ -35,9 +35,9 @@
   };
 </script>
 
-<div class="min-h-[calc(100vh-56px)] flex items-center justify-center bg-gray-50 px-4">
-  <div class="w-full max-w-md bg-white p-8 rounded-2xl shadow-lg">
-    <h1 class="text-3xl font-bold mb-6 text-center text-gray-900">Welcome Back</h1>
+<div class="min-h-[calc(100vh-56px)] flex items-center justify-center bg-gray-50 px-4 py-8">
+  <div class="w-full max-w-md bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
+    <h1 class="text-2xl sm:text-3xl font-bold mb-6 text-center text-gray-900">Welcome Back</h1>
 
     {#if registered}
       <div class="mb-4 p-3 bg-green-100 text-green-700 rounded-lg text-sm">
@@ -123,7 +123,7 @@
         </div>
       </div>
 
-      <div class="mt-4 flex gap-3">
+      <div class="mt-4 flex flex-col sm:flex-row gap-3">
         <button
           onclick={() => signIn("google", { redirectTo: "/dashboard" })}
           class="flex-1 flex items-center justify-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 p-2.5 rounded-lg transition"

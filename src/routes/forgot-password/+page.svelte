@@ -2,9 +2,9 @@
   let { form } = $props();
 </script>
 
-<div class="min-h-[calc(100vh-56px)] flex items-center justify-center bg-gray-50 px-4">
-  <div class="w-full max-w-md bg-white p-8 rounded-2xl shadow-lg">
-    <h1 class="text-3xl font-bold mb-2 text-center text-gray-900">Forgot Password</h1>
+<div class="min-h-[calc(100vh-56px)] flex items-center justify-center bg-gray-50 px-4 py-8">
+  <div class="w-full max-w-md bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
+    <h1 class="text-2xl sm:text-3xl font-bold mb-2 text-center text-gray-900">Forgot Password</h1>
     <p class="text-gray-600 text-center text-sm mb-6">
       Enter your email and we'll send you a reset link.
     </p>

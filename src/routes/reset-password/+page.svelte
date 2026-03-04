@@ -14,8 +14,8 @@
   );
 </script>
 
-<div class="min-h-[calc(100vh-56px)] flex items-center justify-center bg-gray-50 px-4">
-  <div class="w-full max-w-md bg-white p-8 rounded-2xl shadow-lg">
+<div class="min-h-[calc(100vh-56px)] flex items-center justify-center bg-gray-50 px-4 py-8">
+  <div class="w-full max-w-md bg-white p-6 sm:p-8 rounded-2xl shadow-lg">
     {#if !data.valid}
       <div class="text-center">
         <div class="text-red-600 text-lg font-semibold mb-4">Invalid Link</div>
@@ -28,7 +28,7 @@
         </a>
       </div>
     {:else}
-      <h1 class="text-3xl font-bold mb-6 text-center text-gray-900">Reset Password</h1>
+      <h1 class="text-2xl sm:text-3xl font-bold mb-6 text-center text-gray-900">Reset Password</h1>
 
       {#if form?.error}
         <div class="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">

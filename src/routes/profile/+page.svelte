@@ -13,10 +13,10 @@
   );
 </script>
 
-<div class="min-h-[calc(100vh-56px)] bg-gray-50 p-6 sm:p-8">
+<div class="min-h-[calc(100vh-56px)] bg-gray-50 p-4 sm:p-6 md:p-8">
   <div class="max-w-2xl mx-auto">
-    <h1 class="text-3xl font-bold text-gray-900 mb-2">Profile</h1>
-    <p class="text-gray-600 mb-8">Manage your account information</p>
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Profile</h1>
+    <p class="text-gray-600 mb-6 sm:mb-8">Manage your account information</p>
 
     {#if form?.success}
       <div class="mb-4 p-3 bg-green-100 text-green-700 rounded-lg text-sm">
@@ -31,11 +31,11 @@
     {/if}
 
     <!-- Account Info (read-only) -->
-    <div class="bg-white p-6 rounded-2xl shadow mb-6">
+    <div class="bg-white p-5 sm:p-6 rounded-2xl shadow mb-4 sm:mb-6">
       <h2 class="text-lg font-semibold text-gray-900 mb-4">Account Information</h2>
       <div class="space-y-3 text-sm">
         {#if data.user?.createdAt}
-          <div class="flex justify-between items-center py-2 border-b border-gray-100">
+          <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 py-2 border-b border-gray-100">
             <span class="text-gray-500">Member since</span>
             <span class="text-gray-900 font-medium">
               {new Date(data.user.createdAt).toLocaleDateString("en-US", {
@@ -46,7 +46,7 @@
             </span>
           </div>
         {/if}
-        <div class="flex justify-between items-center py-2 border-b border-gray-100">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 py-2 border-b border-gray-100">
           <span class="text-gray-500">Auth method</span>
           <span class="text-gray-900 font-medium">
             {data.isOAuth ? (data.provider === "google" ? "Google" : data.provider === "github" ? "GitHub" : "OAuth") : "Email & Password"}
@@ -56,7 +56,7 @@
     </div>
 
     <!-- Editable Profile -->
-    <div class="bg-white p-6 rounded-2xl shadow mb-6">
+    <div class="bg-white p-5 sm:p-6 rounded-2xl shadow mb-4 sm:mb-6">
       <h2 class="text-lg font-semibold text-gray-900 mb-4">Edit Profile</h2>
 
       <form method="POST" action="?/update" class="space-y-4">
@@ -102,64 +102,66 @@
               Password cannot be changed when signed in with {data.provider === "google" ? "Google" : "GitHub"}.
             </p>
           {:else}
-            <div class="mb-3">
-              <label for="currentPassword" class="block text-sm font-medium text-gray-700 mb-1">
-                Current Password
-              </label>
-              <div class="relative">
-                <input
-                  id="currentPassword"
-                  name="currentPassword"
-                  type={showPasswords ? "text" : "password"}
-                  bind:value={currentPassword}
-                  placeholder="••••••••"
-                  class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none pr-16"
-                />
-                <button
-                  type="button"
-                  onclick={() => (showPasswords = !showPasswords)}
-                  class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 hover:text-gray-700 font-medium"
-                >
-                  {showPasswords ? "Hide" : "Show"}
-                </button>
+            <div class="space-y-3">
+              <div>
+                <label for="currentPassword" class="block text-sm font-medium text-gray-700 mb-1">
+                  Current Password
+                </label>
+                <div class="relative">
+                  <input
+                    id="currentPassword"
+                    name="currentPassword"
+                    type={showPasswords ? "text" : "password"}
+                    bind:value={currentPassword}
+                    placeholder="••••••••"
+                    class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none pr-16"
+                  />
+                  <button
+                    type="button"
+                    onclick={() => (showPasswords = !showPasswords)}
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 hover:text-gray-700 font-medium"
+                  >
+                    {showPasswords ? "Hide" : "Show"}
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div class="mb-3">
-              <label for="newPassword" class="block text-sm font-medium text-gray-700 mb-1">
-                New Password
-              </label>
-              <div class="relative">
+              <div>
+                <label for="newPassword" class="block text-sm font-medium text-gray-700 mb-1">
+                  New Password
+                </label>
+                <div class="relative">
+                  <input
+                    id="newPassword"
+                    name="newPassword"
+                    type={showPasswords ? "text" : "password"}
+                    bind:value={newPassword}
+                    minlength="6"
+                    placeholder="••••••••"
+                    class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+                {#if newPassword.length > 0 && newPassword.length < 6}
+                  <p class="text-red-500 text-xs mt-1">Must be at least 6 characters</p>
+                {/if}
+              </div>
+
+              <div>
+                <label for="confirmPassword" class="block text-sm font-medium text-gray-700 mb-1">
+                  Confirm New Password
+                </label>
                 <input
-                  id="newPassword"
-                  name="newPassword"
+                  id="confirmPassword"
                   type={showPasswords ? "text" : "password"}
-                  bind:value={newPassword}
+                  bind:value={confirmPassword}
                   minlength="6"
                   placeholder="••••••••"
                   class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
                 />
+                {#if passwordMismatch}
+                  <p class="text-red-500 text-xs mt-1">Passwords don't match</p>
+                {/if}
               </div>
-              {#if newPassword.length > 0 && newPassword.length < 6}
-                <p class="text-red-500 text-xs mt-1">Must be at least 6 characters</p>
-              {/if}
-            </div>
-
-            <div>
-              <label for="confirmPassword" class="block text-sm font-medium text-gray-700 mb-1">
-                Confirm New Password
-              </label>
-              <input
-                id="confirmPassword"
-                type={showPasswords ? "text" : "password"}
-                bind:value={confirmPassword}
-                minlength="6"
-                placeholder="••••••••"
-                class="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
-              />
-              {#if passwordMismatch}
-                <p class="text-red-500 text-xs mt-1">Passwords don't match</p>
-              {/if}
             </div>
 
             <p class="text-xs text-gray-400 mt-2">Leave password fields empty to keep your current password.</p>
@@ -169,7 +171,7 @@
         <button
           type="submit"
           disabled={passwordMismatch || (newPassword.length > 0 && newPassword.length < 6)}
-          class="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-lg transition font-medium"
+          class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-lg transition font-medium"
         >
           Save Changes
         </button>

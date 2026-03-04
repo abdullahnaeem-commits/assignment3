@@ -2,10 +2,10 @@
   let { data, form } = $props();
 </script>
 
-<div class="min-h-[calc(100vh-56px)] bg-gray-50 p-6 sm:p-8">
+<div class="min-h-[calc(100vh-56px)] bg-gray-50 p-4 sm:p-6 md:p-8">
   <div class="max-w-6xl mx-auto">
-    <h1 class="text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
-    <p class="text-gray-600 mb-8">Manage users and view analytics</p>
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
+    <p class="text-gray-600 mb-6 sm:mb-8">Manage users and view analytics</p>
 
     {#if form?.error}
       <div class="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
@@ -20,32 +20,33 @@
     {/if}
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-      <div class="bg-white p-5 rounded-2xl shadow">
-        <div class="text-sm text-gray-500">Total Users</div>
-        <div class="text-3xl font-bold text-gray-900">{data.stats.total}</div>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+      <div class="bg-white p-4 sm:p-5 rounded-2xl shadow">
+        <div class="text-xs sm:text-sm text-gray-500">Total Users</div>
+        <div class="text-2xl sm:text-3xl font-bold text-gray-900">{data.stats.total}</div>
       </div>
-      <div class="bg-white p-5 rounded-2xl shadow">
-        <div class="text-sm text-gray-500">Admins</div>
-        <div class="text-3xl font-bold text-blue-600">{data.stats.admins}</div>
+      <div class="bg-white p-4 sm:p-5 rounded-2xl shadow">
+        <div class="text-xs sm:text-sm text-gray-500">Admins</div>
+        <div class="text-2xl sm:text-3xl font-bold text-blue-600">{data.stats.admins}</div>
       </div>
-      <div class="bg-white p-5 rounded-2xl shadow">
-        <div class="text-sm text-gray-500">Verified</div>
-        <div class="text-3xl font-bold text-green-600">{data.stats.verified}</div>
+      <div class="bg-white p-4 sm:p-5 rounded-2xl shadow">
+        <div class="text-xs sm:text-sm text-gray-500">Verified</div>
+        <div class="text-2xl sm:text-3xl font-bold text-green-600">{data.stats.verified}</div>
       </div>
-      <div class="bg-white p-5 rounded-2xl shadow">
-        <div class="text-sm text-gray-500">Unverified</div>
-        <div class="text-3xl font-bold text-orange-500">{data.stats.unverified}</div>
+      <div class="bg-white p-4 sm:p-5 rounded-2xl shadow">
+        <div class="text-xs sm:text-sm text-gray-500">Unverified</div>
+        <div class="text-2xl sm:text-3xl font-bold text-orange-500">{data.stats.unverified}</div>
       </div>
     </div>
 
-    <!-- Users Table -->
+    <!-- Users Table (desktop) / Cards (mobile) -->
     <div class="bg-white rounded-2xl shadow overflow-hidden">
-      <div class="p-5 border-b border-gray-200">
+      <div class="p-4 sm:p-5 border-b border-gray-200">
         <h2 class="text-lg font-semibold text-gray-900">All Users</h2>
       </div>
 
-      <div class="overflow-x-auto">
+      <!-- Desktop table -->
+      <div class="hidden md:block overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="bg-gray-50 text-gray-600">
             <tr>
@@ -119,6 +120,71 @@
             {/each}
           </tbody>
         </table>
+      </div>
+
+      <!-- Mobile cards -->
+      <div class="md:hidden divide-y divide-gray-100">
+        {#each data.users as user}
+          <div class="p-4 space-y-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="font-medium text-gray-900">{user.name || "—"}</div>
+                <div class="text-sm text-gray-500 break-all">{user.email}</div>
+              </div>
+              <span
+                class="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ml-2 {user.role === 'admin'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-600'}"
+              >
+                {user.role}
+              </span>
+            </div>
+
+            <div class="flex items-center justify-between text-xs">
+              <div class="flex items-center gap-3">
+                {#if user.emailVerified}
+                  <span class="text-green-600 font-medium">Verified</span>
+                {:else}
+                  <span class="text-orange-500 font-medium">Unverified</span>
+                {/if}
+                <span class="text-gray-400">
+                  {new Date(user.createdAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </span>
+              </div>
+
+              <div class="flex gap-2">
+                <form method="POST" action="?/toggleRole">
+                  <input type="hidden" name="userId" value={user.id} />
+                  <button
+                    type="submit"
+                    class="text-xs px-2.5 py-1 rounded-lg border border-blue-300 text-blue-600 hover:bg-blue-50 transition"
+                  >
+                    {user.role === "admin" ? "Demote" : "Promote"}
+                  </button>
+                </form>
+                <form
+                  method="POST"
+                  action="?/deleteUser"
+                  onsubmit={(e) => {
+                    if (!confirm(`Delete ${user.email}?`)) e.preventDefault();
+                  }}
+                >
+                  <input type="hidden" name="userId" value={user.id} />
+                  <button
+                    type="submit"
+                    class="text-xs px-2.5 py-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 transition"
+                  >
+                    Delete
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        {/each}
       </div>
     </div>
   </div>
