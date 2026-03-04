@@ -3,6 +3,7 @@ import {
   text,
   timestamp,
   uuid,
+  integer,
   primaryKey,
 } from "drizzle-orm/pg-core";
 
@@ -55,7 +56,7 @@ export const accounts = pgTable(
 
     refresh_token: text("refresh_token"),
     access_token: text("access_token"),
-    expires_at: timestamp("expires_at", { mode: "date" }),
+    expires_at: integer("expires_at"),
     token_type: text("token_type"),
     scope: text("scope"),
     id_token: text("id_token"),

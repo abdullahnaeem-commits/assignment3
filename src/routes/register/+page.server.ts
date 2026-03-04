@@ -1,10 +1,11 @@
 import { db } from "$lib/db";
 import { users } from "$lib/schema";
 import bcrypt from "bcrypt";
-import { fail } from "@sveltejs/kit";
+import { fail, redirect } from "@sveltejs/kit";
+import type { Actions } from "./$types";
 
-export const actions = {
-  default: async ({ request }: any) => {
+export const actions: Actions = {
+  default: async ({ request }) => {
     const form = await request.formData();
     const name = form.get("name") as string;
     const email = form.get("email") as string;
@@ -12,6 +13,10 @@ export const actions = {
 
     if (!email || !password) {
       return fail(400, { error: "Email and password are required." });
+    }
+
+    if (password.length < 6) {
+      return fail(400, { error: "Password must be at least 6 characters." });
     }
 
     try {
@@ -23,15 +28,17 @@ export const actions = {
         password: hashed,
       });
 
-      return { success: true };
+      throw redirect(303, "/login?registered=true");
     } catch (err: any) {
+      if (err?.status === 303) throw err;
+
       console.error("Registration error:", err);
 
       if (err?.code === "23505") {
         return fail(400, { error: "An account with this email already exists." });
       }
 
-      return fail(500, { error: "Registration failed. Check server logs." });
+      return fail(500, { error: "Registration failed. Please try again." });
     }
   },
 };
