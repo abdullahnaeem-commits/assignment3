@@ -57,11 +57,11 @@
   <div class="max-w-[80%] sm:max-w-[70%]">
     <div
       class="px-4 py-3 rounded-2xl {isUser
-        ? 'bg-blue-600 text-white rounded-br-md'
-        : 'bg-gray-100 text-gray-900 rounded-bl-md'}"
+        ? 'bg-gradient-to-r from-blue-500 to-violet-600 text-white rounded-br-md shadow-lg shadow-blue-500/20'
+        : 'bg-white/10 backdrop-blur text-gray-100 rounded-bl-md border border-white/10'}"
     >
       {#if !isUser}
-        <div class="text-xs font-semibold text-blue-600 mb-1">AI Assistant</div>
+        <div class="text-xs font-semibold bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent mb-1">AI Assistant</div>
       {/if}
 
       {#if editing}
@@ -69,12 +69,12 @@
           bind:value={editValue}
           onkeydown={handleEditKeydown}
           rows={3}
-          class="w-full bg-blue-700 text-white text-sm rounded-lg px-2 py-1.5 border border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-300 resize-none"
+          class="w-full bg-white/10 text-white text-sm rounded-lg px-2 py-1.5 border border-white/20 focus:outline-none focus:ring-1 focus:ring-blue-300 resize-none"
         ></textarea>
         <div class="flex gap-2 mt-2 justify-end">
           <button
             onclick={cancelEdit}
-            class="text-xs px-2.5 py-1 rounded-md bg-blue-700 hover:bg-blue-800 text-blue-200 transition"
+            class="text-xs px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/20 text-white/70 transition"
           >
             Cancel
           </button>
@@ -96,11 +96,11 @@
       <div class="flex items-center gap-2 mt-1 {isUser ? 'justify-end' : 'justify-start'}">
         <!-- Version arrows -->
         {#if versionCount > 1 && onversionchange}
-          <div class="flex items-center gap-1 text-gray-500">
+          <div class="flex items-center gap-1 text-gray-400">
             <button
               onclick={() => onversionchange(currentVersion - 1)}
               disabled={currentVersion <= 0}
-              class="p-0.5 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              class="p-0.5 rounded hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
               title="Previous version"
             >
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -111,7 +111,7 @@
             <button
               onclick={() => onversionchange(currentVersion + 1)}
               disabled={currentVersion >= versionCount - 1}
-              class="p-0.5 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              class="p-0.5 rounded hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
               title="Next version"
             >
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -126,7 +126,7 @@
           {#if isUser && onedit}
             <button
               onclick={startEdit}
-              class="text-gray-400 hover:text-gray-600 p-1 rounded transition"
+              class="text-gray-500 hover:text-gray-300 p-1 rounded transition"
               title="Edit message"
             >
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -137,7 +137,7 @@
           {#if !isUser && isLast && onregenerate}
             <button
               onclick={onregenerate}
-              class="text-gray-400 hover:text-gray-600 p-1 rounded transition flex items-center gap-1"
+              class="text-gray-500 hover:text-gray-300 p-1 rounded transition flex items-center gap-1"
               title="Regenerate response"
             >
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

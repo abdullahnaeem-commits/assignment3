@@ -350,7 +350,7 @@
 <div class="flex h-[calc(100vh-64px)]">
   <button
     onclick={() => (sidebarOpen = !sidebarOpen)}
-    class="md:hidden fixed bottom-20 left-3 z-50 bg-gray-900 text-white p-2.5 rounded-full shadow-lg"
+    class="md:hidden fixed bottom-20 left-3 z-50 bg-gradient-to-r from-blue-500 to-violet-600 text-white p-2.5 rounded-full shadow-lg shadow-blue-500/25"
     aria-label="Toggle chat history"
   >
     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -380,14 +380,14 @@
     ></button>
   {/if}
 
-  <div class="flex-1 flex flex-col bg-white min-w-0">
-    <div class="border-b border-gray-200 px-4 sm:px-6 py-3 flex items-center justify-between bg-white">
+  <div class="flex-1 flex flex-col bg-gray-950 min-w-0">
+    <div class="border-b border-white/10 px-4 sm:px-6 py-3 flex items-center justify-between bg-gray-900/80 backdrop-blur-xl">
       <div>
-        <h1 class="text-lg font-semibold text-gray-900">AI Chat</h1>
-        <p class="text-xs text-gray-500">Powered by Google Gemini</p>
+        <h1 class="text-lg font-semibold text-white">AI Chat</h1>
+        <p class="text-xs text-gray-400">Powered by Google Gemini</p>
       </div>
       {#if visibleMessages.length > 0}
-        <button onclick={startNewChat} class="text-sm text-gray-500 hover:text-blue-600 transition px-3 py-1.5 rounded-lg hover:bg-gray-100">
+        <button onclick={startNewChat} class="text-sm text-gray-400 hover:text-blue-400 transition px-3 py-1.5 rounded-lg hover:bg-white/5">
           New Chat
         </button>
       {/if}
@@ -396,13 +396,13 @@
     <div bind:this={chatContainer} class="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
       {#if visibleMessages.length === 0}
         <div class="flex flex-col items-center justify-center h-full text-center">
-          <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-            <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="w-16 h-16 bg-gradient-to-br from-blue-500/20 to-violet-500/20 rounded-full flex items-center justify-center mb-4 border border-white/10">
+            <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
             </svg>
           </div>
-          <h2 class="text-xl font-semibold text-gray-900 mb-2">Start a conversation</h2>
-          <p class="text-gray-500 text-sm max-w-sm">Ask me anything! I'm powered by Google Gemini and ready to help.</p>
+          <h2 class="text-xl font-semibold text-white mb-2">Start a conversation</h2>
+          <p class="text-gray-400 text-sm max-w-sm">Ask me anything! I'm powered by Google Gemini and ready to help.</p>
         </div>
       {:else}
         {#each visibleMessages as message, i (message.id)}
@@ -424,11 +424,11 @@
 
         {#if isLoading && visibleMessages[visibleMessages.length - 1]?.role === "user"}
           <div class="flex justify-start mb-4">
-            <div class="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-3">
+            <div class="bg-white/10 backdrop-blur border border-white/10 rounded-2xl rounded-bl-md px-4 py-3">
               <div class="flex items-center gap-1">
-                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
-                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
-                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+                <div class="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+                <div class="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+                <div class="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
               </div>
             </div>
           </div>
@@ -437,9 +437,9 @@
     </div>
 
     {#if error}
-      <div class="mx-4 sm:mx-6 mb-2 bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm flex items-center justify-between">
+      <div class="mx-4 sm:mx-6 mb-2 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-2 rounded-lg text-sm flex items-center justify-between">
         <span>{error}</span>
-        <button onclick={() => (error = null)} class="text-red-500 hover:text-red-700 ml-2">
+        <button onclick={() => (error = null)} class="text-red-400 hover:text-red-300 ml-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -447,7 +447,7 @@
       </div>
     {/if}
 
-    <div class="border-t border-gray-200 px-4 sm:px-6 py-3 bg-white">
+    <div class="border-t border-white/10 px-4 sm:px-6 py-3 bg-gray-900/80 backdrop-blur-xl">
       <ChatInput bind:value={input} onsubmit={handleSubmit} {isLoading} />
     </div>
   </div>
