@@ -11,56 +11,87 @@ const google = createGoogleGenerativeAI({
 });
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-  const session = await locals.auth();
-  if (!session?.user?.id) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  try {
+    const session = await locals.auth();
+    if (!session?.user?.id) {
+      return new Response("Unauthorized", { status: 401 });
+    }
 
-  const { messages, conversationId } = await request.json();
+    const { messages, conversationId } = await request.json();
 
-  // Get or create conversation
-  let convId = conversationId;
-  if (!convId) {
-    const firstMessage = messages[0]?.content || "New Chat";
-    const title = firstMessage.slice(0, 100);
-    const [conv] = await db
-      .insert(conversations)
-      .values({ userId: session.user.id, title })
-      .returning();
-    convId = conv.id;
-  } else {
-    // Update the conversation timestamp
-    await db
-      .update(conversations)
-      .set({ updatedAt: new Date() })
-      .where(eq(conversations.id, convId));
-  }
+    // Get or create conversation
+    let convId = conversationId;
+    if (!convId) {
+      const firstMessage = messages[0]?.content || "New Chat";
+      const title = firstMessage.slice(0, 100);
+      const [conv] = await db
+        .insert(conversations)
+        .values({ userId: session.user.id, title })
+        .returning();
+      convId = conv.id;
+    } else {
+      // Update the conversation timestamp
+      await db
+        .update(conversations)
+        .set({ updatedAt: new Date() })
+        .where(eq(conversations.id, convId));
+    }
 
-  // Save user message
-  const lastUserMessage = messages[messages.length - 1];
-  if (lastUserMessage?.role === "user") {
-    await db.insert(chatMessages).values({
-      conversationId: convId,
-      role: "user",
-      content: lastUserMessage.content,
-    });
-  }
-
-  const result = streamText({
-    model: google("gemini-2.5-flash-preview-05-20"),
-    system: "You are a helpful AI assistant. Be concise and clear in your responses.",
-    messages,
-    async onFinish({ text }) {
-      // Save assistant response to database
+    // Save user message
+    const lastUserMessage = messages[messages.length - 1];
+    if (lastUserMessage?.role === "user") {
       await db.insert(chatMessages).values({
         conversationId: convId,
-        role: "assistant",
-        content: text,
+        role: "user",
+        content: lastUserMessage.content,
       });
+    }
+
+    const result = streamText({
+      model: google("gemini-2.5-flash"),
+      system: "You are a helpful AI assistant. Be concise and clear in your responses.",
+      messages,
+      async onFinish({ text }) {
+        // Save assistant response to database
+        await db.insert(chatMessages).values({
+          conversationId: convId,
+          role: "assistant",
+          content: text,
+        });
+      },
+    });
+
+    return createTextStreamResponse(result, convId);
+  } catch (err) {
+    console.error("Chat API error:", err);
+    const message = err instanceof Error ? err.message : "Internal server error";
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+};
+
+function createTextStreamResponse(result: ReturnType<typeof streamText>, convId: string) {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const chunk of result.textStream) {
+          controller.enqueue(encoder.encode(chunk));
+        }
+        controller.close();
+      } catch (err) {
+        controller.error(err);
+      }
     },
   });
 
-  return result.toDataStreamResponse({
-    headers: { "X-Conversation-Id": convId },
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Transfer-Encoding": "chunked",
+      "X-Conversation-Id": convId,
+    },
   });
-};
+}
