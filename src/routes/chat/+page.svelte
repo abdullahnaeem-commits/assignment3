@@ -141,28 +141,15 @@
       messages = [...messages, assistantMessage];
 
       const decoder = new TextDecoder();
-      let buffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (line.startsWith("0:")) {
-            try {
-              const text = JSON.parse(line.slice(2));
-              assistantMessage.content += text;
-              messages = [...messages.slice(0, -1), { ...assistantMessage }];
-              scrollToBottom();
-            } catch {
-              // skip non-text chunks
-            }
-          }
-        }
+        const text = decoder.decode(value, { stream: true });
+        assistantMessage.content += text;
+        messages = [...messages.slice(0, -1), { ...assistantMessage }];
+        scrollToBottom();
       }
 
       // Refresh conversation list
