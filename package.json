@@ -12,7 +12,7 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"db:push": "drizzle-kit push",
 		"db:migrate": "drizzle-kit migrate",
-		"db:studio": "drizzle-kit studio",
+		"db:start": "drizzle-kit studio",
 		"db:generate": "drizzle-kit generate"
 	},
 	"devDependencies": {
