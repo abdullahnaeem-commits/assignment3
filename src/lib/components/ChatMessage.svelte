@@ -1,12 +1,6 @@
 <script lang="ts">
   import { renderMarkdown } from "$lib/utils/markdown";
 
-  type Citation = {
-    index: number;
-    filename: string;
-    similarity: number;
-  };
-
   let {
     role,
     content,
@@ -14,7 +8,6 @@
     isLoading = false,
     isStreaming = false,
     timestamp,
-    citations = [],
     onedit,
     onregenerate,
     versionCount = 1,
@@ -27,7 +20,6 @@
     isLoading?: boolean;
     isStreaming?: boolean;
     timestamp?: string;
-    citations?: Citation[];
     onedit?: (newContent: string) => void;
     onregenerate?: () => void;
     versionCount?: number;
@@ -129,20 +121,6 @@
         </div>
       {/if}
     </div>
-
-    <!-- Citations -->
-    {#if !isUser && citations.length > 0 && !isStreaming}
-      <div class="flex flex-wrap gap-1.5 mt-1.5 {isUser ? 'justify-end' : 'justify-start'}">
-        {#each citations as cite}
-          <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20">
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            [{cite.index}] {cite.filename}
-          </span>
-        {/each}
-      </div>
-    {/if}
 
     <!-- Timestamp + Version navigator + action buttons -->
     {#if !editing}

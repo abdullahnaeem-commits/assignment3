@@ -3,12 +3,6 @@
   import ChatInput from "$lib/components/ChatInput.svelte";
   import ChatSidebar from "$lib/components/ChatSidebar.svelte";
 
-  type Citation = {
-    index: number;
-    filename: string;
-    similarity: number;
-  };
-
   type Message = {
     id: string;
     role: "user" | "assistant";
@@ -19,7 +13,6 @@
     branchIndex: number;
     parentMessageId: string | null;
     createdAt?: string;
-    citations?: Citation[];
   };
 
   type Conversation = { id: string; title: string; updatedAt: string };
@@ -136,7 +129,6 @@
         branchIndex: m.branchIndex ?? m.branch_index ?? 0,
         parentMessageId: m.parentMessageId ?? m.parent_message_id ?? null,
         createdAt: m.createdAt ?? m.created_at ?? undefined,
-        citations: undefined,
       }));
       activeVersions = {};
       error = null;
@@ -170,7 +162,7 @@
     error = null;
     input = "";
     sidebarOpen = false;
-    uploadedDocNames = [];
+    uploadedDocs = [];
   }
 
   function scrollToBottom() {
@@ -181,16 +173,6 @@
 
   function handleVersionChange(branchGroup: string, newIndex: number) {
     activeVersions = { ...activeVersions, [branchGroup]: newIndex };
-  }
-
-  function parseRagSources(response: Response): Citation[] {
-    const header = response.headers.get("X-Rag-Sources");
-    if (!header) return [];
-    try {
-      return JSON.parse(header);
-    } catch {
-      return [];
-    }
   }
 
   // === Send a normal new message ===
@@ -225,6 +207,11 @@
         role: m.role, content: m.content,
       }));
 
+      // If we have docs uploaded without a conversation, send their IDs to be attached
+      const pendingDocIds = !activeConversationId
+        ? uploadedDocs.map((d) => d.id)
+        : [];
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -232,6 +219,7 @@
           messages: contextMsgs,
           conversationId: activeConversationId,
           currentBranch: activeBranch,
+          pendingDocIds,
         }),
       });
 
@@ -239,8 +227,6 @@
 
       const newConvId = response.headers.get("X-Conversation-Id");
       if (newConvId && !activeConversationId) activeConversationId = newConvId;
-
-      const citations = parseRagSources(response);
 
       const tempAssistant: Message = {
         id: crypto.randomUUID(),
@@ -252,14 +238,13 @@
         branchIndex: 0,
         parentMessageId: tempUser.id,
         createdAt: new Date().toISOString(),
-        citations,
       };
       allMessages = [...allMessages, tempAssistant];
       streamingMessageId = tempAssistant.id;
 
       await readStream(response, tempAssistant);
       streamingMessageId = null;
-      uploadedDocNames = [];
+      uploadedDocs = [];
       await reloadConversation();
     } catch (e) {
       error = e instanceof Error ? e.message : "Something went wrong";
@@ -305,8 +290,6 @@
         newBranch = meta.branch;
       }
 
-      const citations = parseRagSources(response);
-
       // Add temp messages for streaming
       const tempUser: Message = {
         id: crypto.randomUUID(),
@@ -329,7 +312,6 @@
         branchIndex,
         parentMessageId: tempUser.id,
         createdAt: new Date().toISOString(),
-        citations,
       };
 
       allMessages = [...allMessages, tempUser, tempAssistant];
@@ -381,7 +363,7 @@
     }
   }
 
-  let uploadedDocNames: string[] = $state([]);
+  let uploadedDocs: { id: string; name: string }[] = $state([]);
 
   async function handleFileUpload(file: File) {
     const formData = new FormData();
@@ -396,8 +378,9 @@
         const data = await res.json();
         error = data.error || "Upload failed";
       } else {
+        const data = await res.json();
         error = null;
-        uploadedDocNames = [...uploadedDocNames, file.name];
+        uploadedDocs = [...uploadedDocs, { id: data.id, name: file.name }];
       }
     } catch {
       error = "Upload failed";
@@ -479,7 +462,6 @@
             {isLoading}
             isStreaming={streamingMessageId === message.id}
             timestamp={message.createdAt}
-            citations={message.citations ?? []}
             versionCount={vc}
             currentVersion={cv}
             onversionchange={bg ? (idx) => handleVersionChange(bg, idx) : undefined}
@@ -515,18 +497,18 @@
     {/if}
 
     <div class="border-t border-white/10 px-4 sm:px-6 py-3 bg-gray-900/80 backdrop-blur-xl">
-      {#if uploadedDocNames.length > 0}
+      {#if uploadedDocs.length > 0}
         <div class="flex flex-wrap gap-2 mb-2">
-          {#each uploadedDocNames as docName, i}
+          {#each uploadedDocs as doc, i}
             <span class="inline-flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 text-green-400 text-xs px-2.5 py-1 rounded-full">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              {docName}
+              {doc.name}
               <button
-                onclick={() => { uploadedDocNames = uploadedDocNames.filter((_, idx) => idx !== i); }}
+                onclick={() => { uploadedDocs = uploadedDocs.filter((_, idx) => idx !== i); }}
                 class="text-green-400 hover:text-green-300 ml-0.5"
-                aria-label="Remove {docName}"
+                aria-label="Remove {doc.name}"
               >
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
