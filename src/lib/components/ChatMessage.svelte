@@ -1,9 +1,20 @@
 <script lang="ts">
+  import { renderMarkdown } from "$lib/utils/markdown";
+
+  type Citation = {
+    index: number;
+    filename: string;
+    similarity: number;
+  };
+
   let {
     role,
     content,
     isLast = false,
     isLoading = false,
+    isStreaming = false,
+    timestamp,
+    citations = [],
     onedit,
     onregenerate,
     versionCount = 1,
@@ -14,6 +25,9 @@
     content: string;
     isLast?: boolean;
     isLoading?: boolean;
+    isStreaming?: boolean;
+    timestamp?: string;
+    citations?: Citation[];
     onedit?: (newContent: string) => void;
     onregenerate?: () => void;
     versionCount?: number;
@@ -24,6 +38,7 @@
   const isUser = $derived(role === "user");
   let editing = $state(false);
   let editValue = $state("");
+  let copied = $state(false);
 
   function startEdit() {
     editValue = content;
@@ -51,6 +66,26 @@
       cancelEdit();
     }
   }
+
+  async function copyToClipboard() {
+    try {
+      await navigator.clipboard.writeText(content);
+      copied = true;
+      setTimeout(() => (copied = false), 2000);
+    } catch {
+      // fallback
+    }
+  }
+
+  function formatTime(ts: string | undefined): string {
+    if (!ts) return "";
+    const d = new Date(ts);
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
+  const renderedContent = $derived(
+    !isUser ? renderMarkdown(content) : ""
+  );
 </script>
 
 <div class="flex {isUser ? 'justify-end' : 'justify-start'} mb-4 group">
@@ -86,67 +121,109 @@
             Save & Send
           </button>
         </div>
-      {:else}
+      {:else if isUser}
         <div class="text-sm leading-relaxed whitespace-pre-wrap">{content}</div>
+      {:else}
+        <div class="markdown-content {isStreaming ? 'streaming-cursor' : ''}">
+          {@html renderedContent}
+        </div>
       {/if}
     </div>
 
-    <!-- Version navigator + action buttons -->
-    {#if !editing && !isLoading}
+    <!-- Citations -->
+    {#if !isUser && citations.length > 0 && !isStreaming}
+      <div class="flex flex-wrap gap-1.5 mt-1.5 {isUser ? 'justify-end' : 'justify-start'}">
+        {#each citations as cite}
+          <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            [{cite.index}] {cite.filename}
+          </span>
+        {/each}
+      </div>
+    {/if}
+
+    <!-- Timestamp + Version navigator + action buttons -->
+    {#if !editing}
       <div class="flex items-center gap-2 mt-1 {isUser ? 'justify-end' : 'justify-start'}">
-        <!-- Version arrows -->
-        {#if versionCount > 1 && onversionchange}
-          <div class="flex items-center gap-1 text-gray-400">
-            <button
-              onclick={() => onversionchange(currentVersion - 1)}
-              disabled={currentVersion <= 0}
-              class="p-0.5 rounded hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
-              title="Previous version"
-            >
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <span class="text-xs font-medium tabular-nums">{currentVersion + 1}/{versionCount}</span>
-            <button
-              onclick={() => onversionchange(currentVersion + 1)}
-              disabled={currentVersion >= versionCount - 1}
-              class="p-0.5 rounded hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
-              title="Next version"
-            >
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
+        <!-- Timestamp -->
+        {#if timestamp}
+          <span class="text-[10px] text-gray-500">{formatTime(timestamp)}</span>
         {/if}
 
-        <!-- Action buttons -->
-        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {#if isUser && onedit}
+        {#if !isLoading}
+          <!-- Version arrows -->
+          {#if versionCount > 1 && onversionchange}
+            <div class="flex items-center gap-1 text-gray-400">
+              <button
+                onclick={() => onversionchange(currentVersion - 1)}
+                disabled={currentVersion <= 0}
+                class="p-0.5 rounded hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                title="Previous version"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <span class="text-xs font-medium tabular-nums">{currentVersion + 1}/{versionCount}</span>
+              <button
+                onclick={() => onversionchange(currentVersion + 1)}
+                disabled={currentVersion >= versionCount - 1}
+                class="p-0.5 rounded hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                title="Next version"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          {/if}
+
+          <!-- Action buttons -->
+          <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <!-- Copy button -->
             <button
-              onclick={startEdit}
+              onclick={copyToClipboard}
               class="text-gray-500 hover:text-gray-300 p-1 rounded transition"
-              title="Edit message"
+              title={copied ? "Copied!" : "Copy message"}
             >
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
+              {#if copied}
+                <svg class="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+              {:else}
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              {/if}
             </button>
-          {/if}
-          {#if !isUser && isLast && onregenerate}
-            <button
-              onclick={onregenerate}
-              class="text-gray-500 hover:text-gray-300 p-1 rounded transition flex items-center gap-1"
-              title="Regenerate response"
-            >
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              <span class="text-xs">Regenerate</span>
-            </button>
-          {/if}
-        </div>
+
+            {#if isUser && onedit}
+              <button
+                onclick={startEdit}
+                class="text-gray-500 hover:text-gray-300 p-1 rounded transition"
+                title="Edit message"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+            {/if}
+            {#if !isUser && isLast && onregenerate}
+              <button
+                onclick={onregenerate}
+                class="text-gray-500 hover:text-gray-300 p-1 rounded transition flex items-center gap-1"
+                title="Regenerate response"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span class="text-xs">Regenerate</span>
+              </button>
+            {/if}
+          </div>
+        {/if}
       </div>
     {/if}
   </div>

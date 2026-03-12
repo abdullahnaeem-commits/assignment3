@@ -18,10 +18,20 @@
     onnew: () => void;
     ondelete: (id: string) => void;
   } = $props();
+
+  let searchQuery = $state("");
+
+  const filteredConversations = $derived(
+    searchQuery.trim()
+      ? conversations.filter((c) =>
+          c.title.toLowerCase().includes(searchQuery.trim().toLowerCase())
+        )
+      : conversations
+  );
 </script>
 
 <div class="flex flex-col h-full bg-gray-900/95 backdrop-blur-xl border-r border-white/10">
-  <div class="p-3">
+  <div class="p-3 space-y-2">
     <button
       onclick={onnew}
       class="w-full bg-gradient-to-r from-blue-500 to-violet-600 hover:from-blue-600 hover:to-violet-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
@@ -31,13 +41,28 @@
       </svg>
       New Chat
     </button>
+
+    <!-- Search input -->
+    <div class="relative">
+      <svg class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      <input
+        type="text"
+        bind:value={searchQuery}
+        placeholder="Search chats..."
+        class="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/30 transition"
+      />
+    </div>
   </div>
 
   <div class="flex-1 overflow-y-auto px-2 pb-2 space-y-1">
-    {#if conversations.length === 0}
-      <p class="text-xs text-gray-500 text-center py-4">No conversations yet</p>
+    {#if filteredConversations.length === 0}
+      <p class="text-xs text-gray-500 text-center py-4">
+        {searchQuery.trim() ? "No matching conversations" : "No conversations yet"}
+      </p>
     {:else}
-      {#each conversations as conv (conv.id)}
+      {#each filteredConversations as conv (conv.id)}
         <div class="group relative">
           <button
             onclick={() => onselect(conv.id)}

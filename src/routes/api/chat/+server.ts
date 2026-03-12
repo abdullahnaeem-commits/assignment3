@@ -4,6 +4,7 @@ import { GEMINI_API_KEY } from "$env/static/private";
 import { db } from "$lib/db";
 import { conversations, chatMessages } from "$lib/schema";
 import { eq, and, asc } from "drizzle-orm";
+import { retrieveContext, type RetrievedChunk } from "$lib/rag/retrieve";
 import type { RequestHandler } from "./$types";
 
 const google = createGoogleGenerativeAI({
@@ -38,6 +39,44 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     const lastUserMessage = messages[messages.length - 1];
+
+    // === RAG: Retrieve relevant context ===
+    let ragSources: RetrievedChunk[] = [];
+    let systemPrompt = "You are a helpful AI assistant. Be concise and clear in your responses.";
+
+    try {
+      const queryText = lastUserMessage.content;
+      ragSources = await retrieveContext(queryText, session.user.id);
+
+      if (ragSources.length > 0) {
+        const contextBlock = ragSources
+          .map((src, i) => `[Source ${i + 1}] (${src.filename}):\n${src.content}`)
+          .join("\n\n");
+
+        systemPrompt = `You are a helpful AI assistant. Be concise and clear in your responses.
+
+You have access to the following relevant context from the user's uploaded documents. Use this context to inform your answers when relevant. Cite sources using [Source N] notation when you use information from them.
+
+--- CONTEXT ---
+${contextBlock}
+--- END CONTEXT ---
+
+If the context is not relevant to the user's question, ignore it and answer normally.`;
+      }
+    } catch (ragErr) {
+      // Graceful degradation: if RAG fails, continue without context
+      console.warn("RAG retrieval failed, continuing without context:", ragErr);
+    }
+
+    const ragSourcesHeader = ragSources.length > 0
+      ? JSON.stringify(ragSources.map((s, i) => ({
+          index: i + 1,
+          chunkId: s.chunkId,
+          documentId: s.documentId,
+          filename: s.filename,
+          similarity: s.similarity,
+        })))
+      : "";
 
     if (editPosition !== undefined && convId) {
       // === EDIT: create a new fork ===
@@ -91,7 +130,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       // Stream response and save on the new branch
       const result = streamText({
         model: google("gemini-2.5-flash"),
-        system: "You are a helpful AI assistant. Be concise and clear in your responses.",
+        system: systemPrompt,
         messages,
         async onFinish({ text }) {
           await db.insert(chatMessages).values({
@@ -111,7 +150,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         branchGroup,
         branchIndex: nextIndex,
         branch: newBranch,
-      }));
+      }), ragSourcesHeader);
     } else {
       // === NORMAL MESSAGE: append to current branch ===
       const existing = await db
@@ -138,7 +177,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
       const result = streamText({
         model: google("gemini-2.5-flash"),
-        system: "You are a helpful AI assistant. Be concise and clear in your responses.",
+        system: systemPrompt,
         messages,
         async onFinish({ text }) {
           await db.insert(chatMessages).values({
@@ -152,7 +191,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         },
       });
 
-      return createTextStreamResponse(result, convId);
+      return createTextStreamResponse(result, convId, undefined, ragSourcesHeader);
     }
   } catch (err) {
     console.error("Chat API error:", err);
@@ -168,6 +207,7 @@ function createTextStreamResponse(
   result: ReturnType<typeof streamText>,
   convId: string,
   branchMeta?: string,
+  ragSources?: string,
 ) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -189,6 +229,7 @@ function createTextStreamResponse(
     "X-Conversation-Id": convId,
   };
   if (branchMeta) headers["X-Branch-Meta"] = branchMeta;
+  if (ragSources) headers["X-Rag-Sources"] = ragSources;
 
   return new Response(stream, { headers });
 }

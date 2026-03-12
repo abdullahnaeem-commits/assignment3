@@ -3,6 +3,12 @@
   import ChatInput from "$lib/components/ChatInput.svelte";
   import ChatSidebar from "$lib/components/ChatSidebar.svelte";
 
+  type Citation = {
+    index: number;
+    filename: string;
+    similarity: number;
+  };
+
   type Message = {
     id: string;
     role: "user" | "assistant";
@@ -12,6 +18,8 @@
     branchGroup: string | null;
     branchIndex: number;
     parentMessageId: string | null;
+    createdAt?: string;
+    citations?: Citation[];
   };
 
   type Conversation = { id: string; title: string; updatedAt: string };
@@ -24,6 +32,7 @@
 
   let input = $state("");
   let isLoading = $state(false);
+  let streamingMessageId: string | null = $state(null);
   let error: string | null = $state(null);
   let chatContainer: HTMLDivElement;
 
@@ -126,6 +135,8 @@
         branchGroup: m.branchGroup ?? m.branch_group ?? null,
         branchIndex: m.branchIndex ?? m.branch_index ?? 0,
         parentMessageId: m.parentMessageId ?? m.parent_message_id ?? null,
+        createdAt: m.createdAt ?? m.created_at ?? undefined,
+        citations: undefined,
       }));
       activeVersions = {};
       error = null;
@@ -155,6 +166,7 @@
     allMessages = [];
     activeVersions = {};
     activeBranch = "main";
+    streamingMessageId = null;
     error = null;
     input = "";
     sidebarOpen = false;
@@ -168,6 +180,16 @@
 
   function handleVersionChange(branchGroup: string, newIndex: number) {
     activeVersions = { ...activeVersions, [branchGroup]: newIndex };
+  }
+
+  function parseRagSources(response: Response): Citation[] {
+    const header = response.headers.get("X-Rag-Sources");
+    if (!header) return [];
+    try {
+      return JSON.parse(header);
+    } catch {
+      return [];
+    }
   }
 
   // === Send a normal new message ===
@@ -187,6 +209,7 @@
       branchGroup: null,
       branchIndex: 0,
       parentMessageId: null,
+      createdAt: new Date().toISOString(),
     };
 
     allMessages = [...allMessages, tempUser];
@@ -216,6 +239,8 @@
       const newConvId = response.headers.get("X-Conversation-Id");
       if (newConvId && !activeConversationId) activeConversationId = newConvId;
 
+      const citations = parseRagSources(response);
+
       const tempAssistant: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
@@ -225,13 +250,18 @@
         branchGroup: null,
         branchIndex: 0,
         parentMessageId: tempUser.id,
+        createdAt: new Date().toISOString(),
+        citations,
       };
       allMessages = [...allMessages, tempAssistant];
+      streamingMessageId = tempAssistant.id;
 
       await readStream(response, tempAssistant);
+      streamingMessageId = null;
       await reloadConversation();
     } catch (e) {
       error = e instanceof Error ? e.message : "Something went wrong";
+      streamingMessageId = null;
     } finally {
       isLoading = false;
       scrollToBottom();
@@ -273,6 +303,8 @@
         newBranch = meta.branch;
       }
 
+      const citations = parseRagSources(response);
+
       // Add temp messages for streaming
       const tempUser: Message = {
         id: crypto.randomUUID(),
@@ -283,6 +315,7 @@
         branchGroup,
         branchIndex,
         parentMessageId: null,
+        createdAt: new Date().toISOString(),
       };
       const tempAssistant: Message = {
         id: crypto.randomUUID(),
@@ -293,14 +326,18 @@
         branchGroup,
         branchIndex,
         parentMessageId: tempUser.id,
+        createdAt: new Date().toISOString(),
+        citations,
       };
 
       allMessages = [...allMessages, tempUser, tempAssistant];
+      streamingMessageId = tempAssistant.id;
       if (branchGroup) {
         activeVersions = { ...activeVersions, [branchGroup]: branchIndex };
       }
 
       await readStream(response, tempAssistant);
+      streamingMessageId = null;
 
       // Save the selected version before reload
       const savedVersions = branchGroup
@@ -311,6 +348,7 @@
       activeVersions = savedVersions;
     } catch (e) {
       error = e instanceof Error ? e.message : "Something went wrong";
+      streamingMessageId = null;
     } finally {
       isLoading = false;
       scrollToBottom();
@@ -402,7 +440,7 @@
             </svg>
           </div>
           <h2 class="text-xl font-semibold text-white mb-2">Start a conversation</h2>
-          <p class="text-gray-400 text-sm max-w-sm">Ask me anything! I'm powered by Google Gemini and ready to help.</p>
+          <p class="text-gray-400 text-sm max-w-sm">Ask me anything! I'm powered by Google Gemini and ready to help. Upload documents on the <a href="/documents" class="text-blue-400 underline">Documents</a> page to enable RAG-powered answers.</p>
         </div>
       {:else}
         {#each visibleMessages as message, i (message.id)}
@@ -414,6 +452,9 @@
             content={message.content}
             isLast={i === visibleMessages.length - 1}
             {isLoading}
+            isStreaming={streamingMessageId === message.id}
+            timestamp={message.createdAt}
+            citations={message.citations ?? []}
             versionCount={vc}
             currentVersion={cv}
             onversionchange={bg ? (idx) => handleVersionChange(bg, idx) : undefined}

@@ -5,7 +5,32 @@ import {
   uuid,
   integer,
   primaryKey,
+  customType,
+  jsonb,
 } from "drizzle-orm/pg-core";
+
+/* =========================
+   CUSTOM TYPES
+========================= */
+
+// pgvector vector(384) column type
+export const vector = customType<{
+  data: number[];
+  driverData: string;
+}>({
+  dataType() {
+    return "vector(384)";
+  },
+  toDriver(value: number[]) {
+    return `[${value.join(",")}]`;
+  },
+  fromDriver(value: string) {
+    return value
+      .replace(/[\[\]]/g, "")
+      .split(",")
+      .map(Number);
+  },
+});
 
 /* =========================
    USERS
@@ -117,6 +142,50 @@ export const chatMessages = pgTable("chat_message", {
 });
 
 /* =========================
+   RAG: DOCUMENTS
+========================= */
+
+export const documents = pgTable("document", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  filename: text("filename").notNull(),
+  mimeType: text("mime_type").notNull(),
+  fileSize: integer("file_size").notNull(),
+  totalChunks: integer("total_chunks").default(0).notNull(),
+  status: text("status").default("processing").notNull(), // "processing" | "ready" | "error"
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+/* =========================
+   RAG: CHUNKS
+========================= */
+
+export const chunks = pgTable("chunk", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  documentId: uuid("documentId")
+    .notNull()
+    .references(() => documents.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  chunkIndex: integer("chunk_index").notNull(),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+/* =========================
+   RAG: EMBEDDINGS
+========================= */
+
+export const embeddings = pgTable("embedding", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  chunkId: uuid("chunkId")
+    .notNull()
+    .references(() => chunks.id, { onDelete: "cascade" }),
+  embedding: vector("embedding").notNull(),
+});
+
+/* =========================
    TYPES (IMPORTANT)
 ========================= */
 
@@ -128,3 +197,7 @@ export type Account = typeof accounts.$inferSelect;
 
 export type Conversation = typeof conversations.$inferSelect;
 export type ChatMessage = typeof chatMessages.$inferSelect;
+
+export type Document = typeof documents.$inferSelect;
+export type Chunk = typeof chunks.$inferSelect;
+export type Embedding = typeof embeddings.$inferSelect;
