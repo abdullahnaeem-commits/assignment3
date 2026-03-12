@@ -379,6 +379,29 @@
     }
   }
 
+  async function handleFileUpload(file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await fetch("/api/documents", { method: "POST", body: formData });
+      if (!res.ok) {
+        const data = await res.json();
+        error = data.error || "Upload failed";
+      } else {
+        error = null;
+        // Show success briefly as a non-error message
+        const name = file.name;
+        error = null;
+        // Use a temporary success indicator
+        const tempErr = error;
+        error = `Uploaded "${name}" — it will be used for context in your next message.`;
+        setTimeout(() => { if (error?.includes(name)) error = null; }, 4000);
+      }
+    } catch {
+      error = "Upload failed";
+    }
+  }
+
   async function reloadConversation() {
     await loadConversations();
     if (activeConversationId) await loadConversation(activeConversationId);
@@ -478,9 +501,10 @@
     </div>
 
     {#if error}
-      <div class="mx-4 sm:mx-6 mb-2 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-2 rounded-lg text-sm flex items-center justify-between">
+      {@const isSuccess = error.startsWith("Uploaded")}
+      <div class="mx-4 sm:mx-6 mb-2 {isSuccess ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-400'} border px-4 py-2 rounded-lg text-sm flex items-center justify-between">
         <span>{error}</span>
-        <button onclick={() => (error = null)} class="text-red-400 hover:text-red-300 ml-2">
+        <button onclick={() => (error = null)} class="{isSuccess ? 'text-green-400 hover:text-green-300' : 'text-red-400 hover:text-red-300'} ml-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -489,7 +513,7 @@
     {/if}
 
     <div class="border-t border-white/10 px-4 sm:px-6 py-3 bg-gray-900/80 backdrop-blur-xl">
-      <ChatInput bind:value={input} onsubmit={handleSubmit} {isLoading} />
+      <ChatInput bind:value={input} onsubmit={handleSubmit} {isLoading} onfileupload={handleFileUpload} />
     </div>
   </div>
 </div>
