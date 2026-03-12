@@ -259,6 +259,7 @@
 
       await readStream(response, tempAssistant);
       streamingMessageId = null;
+      uploadedDocNames = [];
       await reloadConversation();
     } catch (e) {
       error = e instanceof Error ? e.message : "Something went wrong";
@@ -385,6 +386,10 @@
   async function handleFileUpload(file: File) {
     const formData = new FormData();
     formData.append("file", file);
+    // If there's an active conversation, scope the doc to it
+    if (activeConversationId) {
+      formData.append("conversationId", activeConversationId);
+    }
     try {
       const res = await fetch("/api/documents", { method: "POST", body: formData });
       if (!res.ok) {

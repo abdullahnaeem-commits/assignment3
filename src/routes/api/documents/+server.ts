@@ -51,11 +51,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
+    const conversationId = formData.get("conversationId") as string | null;
     const docId = await ingestDocument(
       session.user.id,
       file.name,
       file.type,
-      buffer
+      buffer,
+      conversationId || undefined
     );
 
     return Response.json({ id: docId, status: "processing" }, { status: 201 });

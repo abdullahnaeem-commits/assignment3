@@ -12,7 +12,8 @@ export async function ingestDocument(
   userId: string,
   filename: string,
   mimeType: string,
-  buffer: Buffer
+  buffer: Buffer,
+  conversationId?: string
 ): Promise<string> {
   // 1. Create document record
   const [doc] = await db
@@ -23,6 +24,7 @@ export async function ingestDocument(
       mimeType,
       fileSize: buffer.length,
       status: "processing",
+      ...(conversationId ? { conversationId } : {}),
     })
     .returning();
 

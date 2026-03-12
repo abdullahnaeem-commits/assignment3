@@ -46,7 +46,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     try {
       const queryText = lastUserMessage.content;
-      ragSources = await retrieveContext(queryText, session.user.id);
+      ragSources = await retrieveContext(queryText, session.user.id, convId);
 
       console.log(`[RAG] Found ${ragSources.length} sources for query: "${queryText.slice(0, 50)}..."`);
       if (ragSources.length > 0) {
