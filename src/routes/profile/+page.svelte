@@ -3,6 +3,10 @@
 
   let name = $state(data.user?.name || "");
   let email = $state(data.user?.email || "");
+
+  // Keep in sync when data changes
+  $effect(() => { name = data.user?.name || ""; });
+  $effect(() => { email = data.user?.email || ""; });
   let currentPassword = $state("");
   let newPassword = $state("");
   let confirmPassword = $state("");

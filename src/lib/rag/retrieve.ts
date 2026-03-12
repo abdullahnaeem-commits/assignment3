@@ -17,7 +17,7 @@ export async function retrieveContext(
   query: string,
   userId: string,
   topK = 5,
-  threshold = 0.3
+  threshold = 0.1
 ): Promise<RetrievedChunk[]> {
   const queryEmbedding = await getEmbedding(query);
   const vectorStr = `[${queryEmbedding.join(",")}]`;
@@ -28,14 +28,14 @@ export async function retrieveContext(
       c."documentId",
       d.filename,
       c.content,
-      1 - (e.embedding <=> ${vectorStr}::vector) AS similarity
+      1 - (e.embedding <=> ${sql.raw(`'${vectorStr}'`)}::vector) AS similarity
     FROM embedding e
     JOIN chunk c ON c.id = e."chunkId"
     JOIN document d ON d.id = c."documentId"
     WHERE d."userId" = ${userId}
       AND d.status = 'ready'
-      AND 1 - (e.embedding <=> ${vectorStr}::vector) > ${threshold}
-    ORDER BY e.embedding <=> ${vectorStr}::vector
+      AND 1 - (e.embedding <=> ${sql.raw(`'${vectorStr}'`)}::vector) > ${threshold}
+    ORDER BY e.embedding <=> ${sql.raw(`'${vectorStr}'`)}::vector
     LIMIT ${topK}
   `);
 

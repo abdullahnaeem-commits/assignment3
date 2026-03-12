@@ -6,8 +6,15 @@ export async function parsePdf(buffer: Buffer): Promise<string> {
   // @ts-ignore - pdfjs-dist legacy build for Node.js
   const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
 
+  const { createRequire } = await import("module");
+  const require = createRequire(import.meta.url);
+  const standardFontDataUrl = require.resolve("pdfjs-dist/standard_fonts/").replace(/\\/g, "/");
+
   const uint8 = new Uint8Array(buffer);
-  const doc = await pdfjsLib.getDocument({ data: uint8 }).promise;
+  const doc = await pdfjsLib.getDocument({
+    data: uint8,
+    standardFontDataUrl: "file:///" + standardFontDataUrl,
+  }).promise;
 
   const pages: string[] = [];
   for (let i = 1; i <= doc.numPages; i++) {

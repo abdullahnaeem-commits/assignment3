@@ -11,7 +11,7 @@
     onfileupload?: (file: File) => void;
   } = $props();
 
-  let fileInput: HTMLInputElement;
+  let fileInput: HTMLInputElement = $state(null!);
   let uploadingFile = $state(false);
 
   function handleKeydown(e: KeyboardEvent) {

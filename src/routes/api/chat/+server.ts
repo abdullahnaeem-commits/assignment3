@@ -48,6 +48,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       const queryText = lastUserMessage.content;
       ragSources = await retrieveContext(queryText, session.user.id);
 
+      console.log(`[RAG] Found ${ragSources.length} sources for query: "${queryText.slice(0, 50)}..."`);
       if (ragSources.length > 0) {
         const contextBlock = ragSources
           .map((src, i) => `[Source ${i + 1}] (${src.filename}):\n${src.content}`)

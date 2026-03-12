@@ -139,7 +139,7 @@
   {#if error}
     <div class="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-2 rounded-lg text-sm mb-6 flex items-center justify-between">
       <span>{error}</span>
-      <button onclick={() => (error = null)} class="text-red-400 hover:text-red-300 ml-2">
+      <button onclick={() => (error = null)} class="text-red-400 hover:text-red-300 ml-2" aria-label="Dismiss error">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
         </svg>

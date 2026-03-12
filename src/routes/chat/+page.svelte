@@ -170,6 +170,7 @@
     error = null;
     input = "";
     sidebarOpen = false;
+    uploadedDocNames = [];
   }
 
   function scrollToBottom() {
@@ -379,6 +380,8 @@
     }
   }
 
+  let uploadedDocNames: string[] = $state([]);
+
   async function handleFileUpload(file: File) {
     const formData = new FormData();
     formData.append("file", file);
@@ -389,13 +392,7 @@
         error = data.error || "Upload failed";
       } else {
         error = null;
-        // Show success briefly as a non-error message
-        const name = file.name;
-        error = null;
-        // Use a temporary success indicator
-        const tempErr = error;
-        error = `Uploaded "${name}" — it will be used for context in your next message.`;
-        setTimeout(() => { if (error?.includes(name)) error = null; }, 4000);
+        uploadedDocNames = [...uploadedDocNames, file.name];
       }
     } catch {
       error = "Upload failed";
@@ -504,7 +501,7 @@
       {@const isSuccess = error.startsWith("Uploaded")}
       <div class="mx-4 sm:mx-6 mb-2 {isSuccess ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-400'} border px-4 py-2 rounded-lg text-sm flex items-center justify-between">
         <span>{error}</span>
-        <button onclick={() => (error = null)} class="{isSuccess ? 'text-green-400 hover:text-green-300' : 'text-red-400 hover:text-red-300'} ml-2">
+        <button onclick={() => (error = null)} class="{isSuccess ? 'text-green-400 hover:text-green-300' : 'text-red-400 hover:text-red-300'} ml-2" aria-label="Dismiss notification">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -513,6 +510,27 @@
     {/if}
 
     <div class="border-t border-white/10 px-4 sm:px-6 py-3 bg-gray-900/80 backdrop-blur-xl">
+      {#if uploadedDocNames.length > 0}
+        <div class="flex flex-wrap gap-2 mb-2">
+          {#each uploadedDocNames as docName, i}
+            <span class="inline-flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 text-green-400 text-xs px-2.5 py-1 rounded-full">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              {docName}
+              <button
+                onclick={() => { uploadedDocNames = uploadedDocNames.filter((_, idx) => idx !== i); }}
+                class="text-green-400 hover:text-green-300 ml-0.5"
+                aria-label="Remove {docName}"
+              >
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          {/each}
+        </div>
+      {/if}
       <ChatInput bind:value={input} onsubmit={handleSubmit} {isLoading} onfileupload={handleFileUpload} />
     </div>
   </div>
