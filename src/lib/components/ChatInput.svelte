@@ -3,11 +3,25 @@
     value = $bindable(""),
     onsubmit,
     isLoading = false,
+    onfileupload,
   }: {
     value: string;
     onsubmit: () => void;
     isLoading: boolean;
+    onfileupload?: (file: File) => void;
   } = $props();
+
+  let fileInput: HTMLInputElement = $state(null!);
+  let textareaEl: HTMLTextAreaElement = $state(null!);
+  let uploadingFile = $state(false);
+  let wasLoading = $state(false);
+
+  $effect(() => {
+    if (wasLoading && !isLoading && textareaEl) {
+      textareaEl.focus();
+    }
+    wasLoading = isLoading;
+  });
 
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -16,6 +30,17 @@
         onsubmit();
       }
     }
+  }
+
+  async function handleFileSelect(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file && onfileupload) {
+      uploadingFile = true;
+      onfileupload(file);
+      setTimeout(() => (uploadingFile = false), 3000);
+    }
+    input.value = "";
   }
 </script>
 
@@ -26,7 +51,35 @@
   }}
   class="flex gap-2 items-end"
 >
+  {#if onfileupload}
+    <button
+      type="button"
+      onclick={() => fileInput.click()}
+      disabled={isLoading || uploadingFile}
+      class="text-gray-400 hover:text-blue-400 p-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
+      title="Upload document (.txt, .pdf)"
+    >
+      {#if uploadingFile}
+        <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+      {:else}
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+        </svg>
+      {/if}
+    </button>
+    <input
+      bind:this={fileInput}
+      type="file"
+      accept=".txt,.pdf,text/plain,application/pdf"
+      onchange={handleFileSelect}
+      class="hidden"
+    />
+  {/if}
   <textarea
+    bind:this={textareaEl}
     bind:value
     onkeydown={handleKeydown}
     placeholder="Type your message..."

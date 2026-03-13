@@ -1,6 +1,6 @@
 import { db } from "$lib/db";
 import { documents } from "$lib/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, isNull } from "drizzle-orm";
 import { ingestDocument } from "$lib/rag/ingest";
 import type { RequestHandler } from "./$types";
 
@@ -13,10 +13,11 @@ export const GET: RequestHandler = async ({ locals }) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
+  // Only show global docs (not chat-scoped ones)
   const docs = await db
     .select()
     .from(documents)
-    .where(eq(documents.userId, session.user.id))
+    .where(and(eq(documents.userId, session.user.id), isNull(documents.conversationId)))
     .orderBy(desc(documents.createdAt));
 
   return Response.json(docs);
@@ -51,11 +52,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
+    const conversationId = formData.get("conversationId") as string | null;
     const docId = await ingestDocument(
       session.user.id,
       file.name,
       file.type,
-      buffer
+      buffer,
+      conversationId || undefined
     );
 
     return Response.json({ id: docId, status: "processing" }, { status: 201 });

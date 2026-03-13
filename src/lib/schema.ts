@@ -150,6 +150,8 @@ export const documents = pgTable("document", {
   userId: uuid("userId")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  conversationId: uuid("conversationId")
+    .references(() => conversations.id, { onDelete: "cascade" }),
   filename: text("filename").notNull(),
   mimeType: text("mime_type").notNull(),
   fileSize: integer("file_size").notNull(),

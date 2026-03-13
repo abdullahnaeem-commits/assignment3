@@ -3,12 +3,6 @@
   import ChatInput from "$lib/components/ChatInput.svelte";
   import ChatSidebar from "$lib/components/ChatSidebar.svelte";
 
-  type Citation = {
-    index: number;
-    filename: string;
-    similarity: number;
-  };
-
   type Message = {
     id: string;
     role: "user" | "assistant";
@@ -19,7 +13,8 @@
     branchIndex: number;
     parentMessageId: string | null;
     createdAt?: string;
-    citations?: Citation[];
+    attachments?: string[];
+    ragSources?: Record<string, string>; // filename -> documentId
   };
 
   type Conversation = { id: string; title: string; updatedAt: string };
@@ -126,18 +121,24 @@
       if (!res.ok) return;
       const data = await res.json();
       activeConversationId = id;
-      allMessages = data.messages.map((m: any) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        position: m.position ?? 0,
-        branch: m.branch ?? "main",
-        branchGroup: m.branchGroup ?? m.branch_group ?? null,
-        branchIndex: m.branchIndex ?? m.branch_index ?? 0,
-        parentMessageId: m.parentMessageId ?? m.parent_message_id ?? null,
-        createdAt: m.createdAt ?? m.created_at ?? undefined,
-        citations: undefined,
-      }));
+      allMessages = data.messages.map((m: any) => {
+        const pos = m.position ?? 0;
+        const branch = m.branch ?? "main";
+        const key = `${pos}:${branch}`;
+        return {
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          position: pos,
+          branch,
+          branchGroup: m.branchGroup ?? m.branch_group ?? null,
+          branchIndex: m.branchIndex ?? m.branch_index ?? 0,
+          parentMessageId: m.parentMessageId ?? m.parent_message_id ?? null,
+          createdAt: m.createdAt ?? m.created_at ?? undefined,
+          attachments: attachmentMap[key],
+          ragSources: ragSourcesMap[key],
+        };
+      });
       activeVersions = {};
       error = null;
       sidebarOpen = false;
@@ -165,11 +166,14 @@
     activeConversationId = null;
     allMessages = [];
     activeVersions = {};
+    attachmentMap = {};
+    ragSourcesMap = {};
     activeBranch = "main";
     streamingMessageId = null;
     error = null;
     input = "";
     sidebarOpen = false;
+    uploadedDocs = [];
   }
 
   function scrollToBottom() {
@@ -180,16 +184,6 @@
 
   function handleVersionChange(branchGroup: string, newIndex: number) {
     activeVersions = { ...activeVersions, [branchGroup]: newIndex };
-  }
-
-  function parseRagSources(response: Response): Citation[] {
-    const header = response.headers.get("X-Rag-Sources");
-    if (!header) return [];
-    try {
-      return JSON.parse(header);
-    } catch {
-      return [];
-    }
   }
 
   // === Send a normal new message ===
@@ -210,8 +204,12 @@
       branchIndex: 0,
       parentMessageId: null,
       createdAt: new Date().toISOString(),
+      attachments: uploadedDocs.length > 0 ? uploadedDocs.map((d) => d.name) : undefined,
     };
 
+    if (tempUser.attachments) {
+      attachmentMap = { ...attachmentMap, [`${tempUser.position}:${tempUser.branch}`]: tempUser.attachments };
+    }
     allMessages = [...allMessages, tempUser];
     const userContent = input.trim();
     input = "";
@@ -224,6 +222,11 @@
         role: m.role, content: m.content,
       }));
 
+      // If we have docs uploaded without a conversation, send their IDs to be attached
+      const pendingDocIds = !activeConversationId
+        ? uploadedDocs.map((d) => d.id)
+        : [];
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -231,6 +234,7 @@
           messages: contextMsgs,
           conversationId: activeConversationId,
           currentBranch: activeBranch,
+          pendingDocIds,
         }),
       });
 
@@ -239,7 +243,8 @@
       const newConvId = response.headers.get("X-Conversation-Id");
       if (newConvId && !activeConversationId) activeConversationId = newConvId;
 
-      const citations = parseRagSources(response);
+      const ragSourcesHeader = response.headers.get("X-Rag-Sources");
+      const ragSources = ragSourcesHeader ? JSON.parse(ragSourcesHeader) : undefined;
 
       const tempAssistant: Message = {
         id: crypto.randomUUID(),
@@ -251,13 +256,17 @@
         branchIndex: 0,
         parentMessageId: tempUser.id,
         createdAt: new Date().toISOString(),
-        citations,
+        ragSources,
       };
+      if (ragSources) {
+        ragSourcesMap = { ...ragSourcesMap, [`${tempAssistant.position}:${tempAssistant.branch}`]: ragSources };
+      }
       allMessages = [...allMessages, tempAssistant];
       streamingMessageId = tempAssistant.id;
 
       await readStream(response, tempAssistant);
       streamingMessageId = null;
+      uploadedDocs = [];
       await reloadConversation();
     } catch (e) {
       error = e instanceof Error ? e.message : "Something went wrong";
@@ -293,6 +302,8 @@
       if (!response.ok) throw new Error(`Failed (${response.status})`);
 
       const branchMetaStr = response.headers.get("X-Branch-Meta");
+      const editRagHeader = response.headers.get("X-Rag-Sources");
+      const editRagSources = editRagHeader ? JSON.parse(editRagHeader) : undefined;
       let newBranch = activeBranch;
       let branchGroup: string | null = null;
       let branchIndex = 0;
@@ -302,8 +313,6 @@
         branchIndex = meta.branchIndex;
         newBranch = meta.branch;
       }
-
-      const citations = parseRagSources(response);
 
       // Add temp messages for streaming
       const tempUser: Message = {
@@ -327,9 +336,12 @@
         branchIndex,
         parentMessageId: tempUser.id,
         createdAt: new Date().toISOString(),
-        citations,
+        ragSources: editRagSources,
       };
 
+      if (editRagSources) {
+        ragSourcesMap = { ...ragSourcesMap, [`${tempAssistant.position}:${tempAssistant.branch}`]: editRagSources };
+      }
       allMessages = [...allMessages, tempUser, tempAssistant];
       streamingMessageId = tempAssistant.id;
       if (branchGroup) {
@@ -376,6 +388,33 @@
       target.content += decoder.decode(value, { stream: true });
       allMessages = [...allMessages.slice(0, -1), { ...target }];
       scrollToBottom();
+    }
+  }
+
+  // Track attachments and RAG sources by position+branch so they survive message reloads from DB
+  let attachmentMap: Record<string, string[]> = $state({});
+  let ragSourcesMap: Record<string, Record<string, string>> = $state({});
+  let uploadedDocs: { id: string; name: string }[] = $state([]);
+
+  async function handleFileUpload(file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    // If there's an active conversation, scope the doc to it
+    if (activeConversationId) {
+      formData.append("conversationId", activeConversationId);
+    }
+    try {
+      const res = await fetch("/api/documents", { method: "POST", body: formData });
+      if (!res.ok) {
+        const data = await res.json();
+        error = data.error || "Upload failed";
+      } else {
+        const data = await res.json();
+        error = null;
+        uploadedDocs = [...uploadedDocs, { id: data.id, name: file.name }];
+      }
+    } catch {
+      error = "Upload failed";
     }
   }
 
@@ -454,7 +493,8 @@
             {isLoading}
             isStreaming={streamingMessageId === message.id}
             timestamp={message.createdAt}
-            citations={message.citations ?? []}
+            attachments={message.attachments}
+            ragSources={message.ragSources}
             versionCount={vc}
             currentVersion={cv}
             onversionchange={bg ? (idx) => handleVersionChange(bg, idx) : undefined}
@@ -478,9 +518,10 @@
     </div>
 
     {#if error}
-      <div class="mx-4 sm:mx-6 mb-2 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-2 rounded-lg text-sm flex items-center justify-between">
+      {@const isSuccess = error.startsWith("Uploaded")}
+      <div class="mx-4 sm:mx-6 mb-2 {isSuccess ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-400'} border px-4 py-2 rounded-lg text-sm flex items-center justify-between">
         <span>{error}</span>
-        <button onclick={() => (error = null)} class="text-red-400 hover:text-red-300 ml-2">
+        <button onclick={() => (error = null)} class="{isSuccess ? 'text-green-400 hover:text-green-300' : 'text-red-400 hover:text-red-300'} ml-2" aria-label="Dismiss notification">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -489,7 +530,28 @@
     {/if}
 
     <div class="border-t border-white/10 px-4 sm:px-6 py-3 bg-gray-900/80 backdrop-blur-xl">
-      <ChatInput bind:value={input} onsubmit={handleSubmit} {isLoading} />
+      {#if uploadedDocs.length > 0}
+        <div class="flex flex-wrap gap-2 mb-2">
+          {#each uploadedDocs as doc, i}
+            <span class="inline-flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 text-green-400 text-xs px-2.5 py-1 rounded-full">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              {doc.name}
+              <button
+                onclick={() => { uploadedDocs = uploadedDocs.filter((_, idx) => idx !== i); }}
+                class="text-green-400 hover:text-green-300 ml-0.5"
+                aria-label="Remove {doc.name}"
+              >
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          {/each}
+        </div>
+      {/if}
+      <ChatInput bind:value={input} onsubmit={handleSubmit} {isLoading} onfileupload={handleFileUpload} />
     </div>
   </div>
 </div>

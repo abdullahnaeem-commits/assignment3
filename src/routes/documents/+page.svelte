@@ -107,13 +107,11 @@
   </div>
 
   <!-- Upload area -->
-  <div
-    role="button"
-    tabindex="0"
+  <label
     ondragover={(e) => { e.preventDefault(); dragOver = true; }}
     ondragleave={() => (dragOver = false)}
     ondrop={handleDrop}
-    class="border-2 border-dashed rounded-xl p-8 text-center transition mb-8
+    class="block border-2 border-dashed rounded-xl p-8 text-center transition mb-8 cursor-pointer
       {dragOver
         ? 'border-blue-400 bg-blue-400/5'
         : 'border-white/10 hover:border-white/20 bg-white/5'}"
@@ -134,15 +132,14 @@
       accept=".txt,.pdf,text/plain,application/pdf"
       onchange={handleFileInput}
       disabled={uploading}
-      class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-      style="position: relative;"
+      class="hidden"
     />
-  </div>
+  </label>
 
   {#if error}
     <div class="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-2 rounded-lg text-sm mb-6 flex items-center justify-between">
       <span>{error}</span>
-      <button onclick={() => (error = null)} class="text-red-400 hover:text-red-300 ml-2">
+      <button onclick={() => (error = null)} class="text-red-400 hover:text-red-300 ml-2" aria-label="Dismiss error">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
         </svg>

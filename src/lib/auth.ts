@@ -26,6 +26,11 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
       clientId: GOOGLE_CLIENT_ID,
       clientSecret: GOOGLE_CLIENT_SECRET,
       allowDangerousEmailAccountLinking: true,
+      authorization: {
+        params: {
+          prompt: "select_account",
+        },
+      },
     }),
 
     GitHub({
@@ -35,8 +40,8 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
     }),
   ],
 
-  // Database sessions (default with adapter)
-  session: { strategy: "database" },
+  // Database sessions - expire after 1 hour to require re-login
+  session: { strategy: "database", maxAge: 60 * 60 },
 
   pages: {
     signIn: "/login",
