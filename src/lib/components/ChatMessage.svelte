@@ -8,6 +8,8 @@
     isLoading = false,
     isStreaming = false,
     timestamp,
+    attachments,
+    ragSources,
     onedit,
     onregenerate,
     versionCount = 1,
@@ -20,6 +22,8 @@
     isLoading?: boolean;
     isStreaming?: boolean;
     timestamp?: string;
+    attachments?: string[];
+    ragSources?: Record<string, string>; // filename -> documentId
     onedit?: (newContent: string) => void;
     onregenerate?: () => void;
     versionCount?: number;
@@ -75,13 +79,43 @@
     return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
 
+  // Extract [[doc:filename]] citations and strip them from content
+  const citedFiles = $derived(() => {
+    const matches = content.matchAll(/\[\[doc:(.+?)\]\]/g);
+    const files = new Set<string>();
+    for (const m of matches) files.add(m[1]);
+    return [...files];
+  });
+
+  const cleanContent = $derived(
+    !isUser ? content.replace(/\s*\[\[doc:.+?\]\]/g, "") : content
+  );
+
   const renderedContent = $derived(
-    !isUser ? renderMarkdown(content) : ""
+    !isUser ? renderMarkdown(cleanContent) : ""
   );
 </script>
 
 <div class="flex {isUser ? 'justify-end' : 'justify-start'} mb-4 group">
-  <div class="max-w-[80%] sm:max-w-[70%]">
+  <div class="flex {isUser ? 'flex-row-reverse' : 'flex-row'} gap-2.5 max-w-[85%] sm:max-w-[75%]">
+    <!-- Avatar -->
+    <div class="flex-shrink-0 mt-1">
+      {#if isUser}
+        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        </div>
+      {:else}
+        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500/20 to-blue-500/20 border border-white/10 flex items-center justify-center">
+          <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M19 14.5l-2.47 3.954a2.25 2.25 0 01-1.906 1.046H9.376a2.25 2.25 0 01-1.906-1.046L5 14.5m14 0a2.68 2.68 0 00-.474-.135m.474.135a2.689 2.689 0 01-.474-.135M5 14.5a2.68 2.68 0 01.474-.135m-.474.135a2.689 2.689 0 00.474-.135" />
+          </svg>
+        </div>
+      {/if}
+    </div>
+
+    <div class="min-w-0">
     <div
       class="px-4 py-3 rounded-2xl {isUser
         ? 'bg-gradient-to-r from-blue-500 to-violet-600 text-white rounded-br-md shadow-lg shadow-blue-500/20'
@@ -115,10 +149,40 @@
         </div>
       {:else if isUser}
         <div class="text-sm leading-relaxed whitespace-pre-wrap">{content}</div>
+        {#if attachments && attachments.length > 0}
+          <div class="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-white/20">
+            {#each attachments as filename}
+              <span class="inline-flex items-center gap-1 bg-white/15 text-white/90 text-xs px-2 py-0.5 rounded-md">
+                <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+                {filename}
+              </span>
+            {/each}
+          </div>
+        {/if}
       {:else}
         <div class="markdown-content {isStreaming ? 'streaming-cursor' : ''}">
           {@html renderedContent}
         </div>
+        {#if !isStreaming && citedFiles().length > 0}
+          <div class="flex flex-wrap gap-1.5 mt-2.5 pt-2 border-t border-white/10">
+            <span class="text-[10px] text-gray-500 mr-1 self-center">Sources:</span>
+            {#each citedFiles() as filename}
+              {@const docId = ragSources?.[filename]}
+              <a
+                href={docId ? `/documents` : '#'}
+                class="inline-flex items-center gap-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300 text-xs px-2 py-0.5 rounded-md transition cursor-pointer"
+                title="View document: {filename}"
+              >
+                <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                {filename}
+              </a>
+            {/each}
+          </div>
+        {/if}
       {/if}
     </div>
 
@@ -204,5 +268,6 @@
         {/if}
       </div>
     {/if}
+  </div>
   </div>
 </div>

@@ -13,6 +13,8 @@
     branchIndex: number;
     parentMessageId: string | null;
     createdAt?: string;
+    attachments?: string[];
+    ragSources?: Record<string, string>; // filename -> documentId
   };
 
   type Conversation = { id: string; title: string; updatedAt: string };
@@ -119,17 +121,24 @@
       if (!res.ok) return;
       const data = await res.json();
       activeConversationId = id;
-      allMessages = data.messages.map((m: any) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        position: m.position ?? 0,
-        branch: m.branch ?? "main",
-        branchGroup: m.branchGroup ?? m.branch_group ?? null,
-        branchIndex: m.branchIndex ?? m.branch_index ?? 0,
-        parentMessageId: m.parentMessageId ?? m.parent_message_id ?? null,
-        createdAt: m.createdAt ?? m.created_at ?? undefined,
-      }));
+      allMessages = data.messages.map((m: any) => {
+        const pos = m.position ?? 0;
+        const branch = m.branch ?? "main";
+        const key = `${pos}:${branch}`;
+        return {
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          position: pos,
+          branch,
+          branchGroup: m.branchGroup ?? m.branch_group ?? null,
+          branchIndex: m.branchIndex ?? m.branch_index ?? 0,
+          parentMessageId: m.parentMessageId ?? m.parent_message_id ?? null,
+          createdAt: m.createdAt ?? m.created_at ?? undefined,
+          attachments: attachmentMap[key],
+          ragSources: ragSourcesMap[key],
+        };
+      });
       activeVersions = {};
       error = null;
       sidebarOpen = false;
@@ -157,6 +166,8 @@
     activeConversationId = null;
     allMessages = [];
     activeVersions = {};
+    attachmentMap = {};
+    ragSourcesMap = {};
     activeBranch = "main";
     streamingMessageId = null;
     error = null;
@@ -193,8 +204,12 @@
       branchIndex: 0,
       parentMessageId: null,
       createdAt: new Date().toISOString(),
+      attachments: uploadedDocs.length > 0 ? uploadedDocs.map((d) => d.name) : undefined,
     };
 
+    if (tempUser.attachments) {
+      attachmentMap = { ...attachmentMap, [`${tempUser.position}:${tempUser.branch}`]: tempUser.attachments };
+    }
     allMessages = [...allMessages, tempUser];
     const userContent = input.trim();
     input = "";
@@ -228,6 +243,9 @@
       const newConvId = response.headers.get("X-Conversation-Id");
       if (newConvId && !activeConversationId) activeConversationId = newConvId;
 
+      const ragSourcesHeader = response.headers.get("X-Rag-Sources");
+      const ragSources = ragSourcesHeader ? JSON.parse(ragSourcesHeader) : undefined;
+
       const tempAssistant: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
@@ -238,7 +256,11 @@
         branchIndex: 0,
         parentMessageId: tempUser.id,
         createdAt: new Date().toISOString(),
+        ragSources,
       };
+      if (ragSources) {
+        ragSourcesMap = { ...ragSourcesMap, [`${tempAssistant.position}:${tempAssistant.branch}`]: ragSources };
+      }
       allMessages = [...allMessages, tempAssistant];
       streamingMessageId = tempAssistant.id;
 
@@ -280,6 +302,8 @@
       if (!response.ok) throw new Error(`Failed (${response.status})`);
 
       const branchMetaStr = response.headers.get("X-Branch-Meta");
+      const editRagHeader = response.headers.get("X-Rag-Sources");
+      const editRagSources = editRagHeader ? JSON.parse(editRagHeader) : undefined;
       let newBranch = activeBranch;
       let branchGroup: string | null = null;
       let branchIndex = 0;
@@ -312,8 +336,12 @@
         branchIndex,
         parentMessageId: tempUser.id,
         createdAt: new Date().toISOString(),
+        ragSources: editRagSources,
       };
 
+      if (editRagSources) {
+        ragSourcesMap = { ...ragSourcesMap, [`${tempAssistant.position}:${tempAssistant.branch}`]: editRagSources };
+      }
       allMessages = [...allMessages, tempUser, tempAssistant];
       streamingMessageId = tempAssistant.id;
       if (branchGroup) {
@@ -363,6 +391,9 @@
     }
   }
 
+  // Track attachments and RAG sources by position+branch so they survive message reloads from DB
+  let attachmentMap: Record<string, string[]> = $state({});
+  let ragSourcesMap: Record<string, Record<string, string>> = $state({});
   let uploadedDocs: { id: string; name: string }[] = $state([]);
 
   async function handleFileUpload(file: File) {
@@ -462,6 +493,8 @@
             {isLoading}
             isStreaming={streamingMessageId === message.id}
             timestamp={message.createdAt}
+            attachments={message.attachments}
+            ragSources={message.ragSources}
             versionCount={vc}
             currentVersion={cv}
             onversionchange={bg ? (idx) => handleVersionChange(bg, idx) : undefined}

@@ -59,18 +59,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       console.log(`[RAG] Found ${ragSources.length} sources for query: "${queryText.slice(0, 50)}..."`);
       if (ragSources.length > 0) {
         const contextBlock = ragSources
-          .map((src) => `(${src.filename}):\n${src.content}`)
+          .map((src) => `[${src.filename}]:\n${src.content}`)
           .join("\n\n");
 
         systemPrompt = `You are a helpful AI assistant. Be concise and clear in your responses.
 
-You have access to the following relevant context from the user's uploaded documents. Use this context to inform your answers when relevant. Do not mention source numbers or citations — just answer naturally using the information.
+You have access to the following relevant context from the user's uploaded documents. Use this context to inform your answers when relevant.
+
+When you use information from a document, cite it at the end of the relevant sentence or paragraph using the format [[doc:filename]]. For example: "The revenue grew by 20% [[doc:report.pdf]]". Use the exact filename from the context block. You may cite multiple documents. Only cite documents you actually used.
 
 --- CONTEXT ---
 ${contextBlock}
 --- END CONTEXT ---
 
-If the context is not relevant to the user's question, ignore it and answer normally.`;
+If the context is not relevant to the user's question, ignore it and answer normally without citations.`;
       }
     } catch (ragErr) {
       // Graceful degradation: if RAG fails, continue without context
@@ -149,7 +151,7 @@ If the context is not relevant to the user's question, ignore it and answer norm
         branchGroup,
         branchIndex: nextIndex,
         branch: newBranch,
-      }));
+      }), ragSources);
     } else {
       // === NORMAL MESSAGE: append to current branch ===
       const existing = await db
@@ -190,7 +192,7 @@ If the context is not relevant to the user's question, ignore it and answer norm
         },
       });
 
-      return createTextStreamResponse(result, convId);
+      return createTextStreamResponse(result, convId, undefined, ragSources);
     }
   } catch (err) {
     console.error("Chat API error:", err);
@@ -206,6 +208,7 @@ function createTextStreamResponse(
   result: ReturnType<typeof streamText>,
   convId: string,
   branchMeta?: string,
+  ragSources?: RetrievedChunk[],
 ) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -227,6 +230,14 @@ function createTextStreamResponse(
     "X-Conversation-Id": convId,
   };
   if (branchMeta) headers["X-Branch-Meta"] = branchMeta;
+  if (ragSources && ragSources.length > 0) {
+    // Deduplicate by documentId and send as JSON map of filename -> documentId
+    const sourceMap: Record<string, string> = {};
+    for (const src of ragSources) {
+      sourceMap[src.filename] = src.documentId;
+    }
+    headers["X-Rag-Sources"] = JSON.stringify(sourceMap);
+  }
 
   return new Response(stream, { headers });
 }

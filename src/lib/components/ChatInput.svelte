@@ -12,7 +12,16 @@
   } = $props();
 
   let fileInput: HTMLInputElement = $state(null!);
+  let textareaEl: HTMLTextAreaElement = $state(null!);
   let uploadingFile = $state(false);
+  let wasLoading = $state(false);
+
+  $effect(() => {
+    if (wasLoading && !isLoading && textareaEl) {
+      textareaEl.focus();
+    }
+    wasLoading = isLoading;
+  });
 
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -70,6 +79,7 @@
     />
   {/if}
   <textarea
+    bind:this={textareaEl}
     bind:value
     onkeydown={handleKeydown}
     placeholder="Type your message..."
