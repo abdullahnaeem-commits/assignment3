@@ -1,6 +1,6 @@
-import { EMBEDDING_API_URL } from "$env/static/private";
+import { env } from "$env/dynamic/private";
 
-const baseUrl = EMBEDDING_API_URL || "http://localhost:8000";
+const baseUrl = env.EMBEDDING_API_URL || "http://localhost:8000";
 
 export async function getEmbeddings(texts: string[]): Promise<number[][]> {
   const res = await fetch(`${baseUrl}/embed`, {

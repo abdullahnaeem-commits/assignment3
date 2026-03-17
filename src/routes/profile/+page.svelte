@@ -1,12 +1,11 @@
 <script lang="ts">
   let { data, form } = $props();
 
-  let name = $state(data.user?.name || "");
-  let email = $state(data.user?.email || "");
+  let nameOverride = $state<string | null>(null);
+  let emailOverride = $state<string | null>(null);
 
-  // Keep in sync when data changes
-  $effect(() => { name = data.user?.name || ""; });
-  $effect(() => { email = data.user?.email || ""; });
+  let name = $derived(nameOverride ?? data.user?.name ?? "");
+  let email = $derived(emailOverride ?? data.user?.email ?? "");
   let currentPassword = $state("");
   let newPassword = $state("");
   let confirmPassword = $state("");
@@ -105,7 +104,8 @@
             id="name"
             name="name"
             type="text"
-            bind:value={name}
+            value={name}
+            oninput={(e) => (nameOverride = e.currentTarget.value)}
             placeholder="Enter your name"
             class="w-full bg-white/5 border border-white/10 text-white placeholder-gray-500 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
           />
@@ -118,7 +118,8 @@
             name="email"
             type="email"
             required
-            bind:value={email}
+            value={email}
+            oninput={(e) => (emailOverride = e.currentTarget.value)}
             disabled={data.isOAuth}
             placeholder="you@email.com"
             class="w-full bg-white/5 border border-white/10 text-white placeholder-gray-500 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none {data.isOAuth ? 'opacity-50 cursor-not-allowed' : ''}"
