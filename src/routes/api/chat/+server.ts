@@ -87,32 +87,40 @@ If the context is not relevant to the user's question, ignore it and answer norm
         .where(eq(chatMessages.conversationId, convId))
         .orderBy(asc(chatMessages.position), asc(chatMessages.branchIndex));
 
-      // Find versions at this fork position
-      const forkVersions = existing.filter(
-        (m) => m.position === editPosition && m.role === "user"
+      // Find the source message on the current branch at the edit position
+      const sourceMsg = existing.find(
+        (m) => m.position === editPosition && m.role === "user" && m.branch === branch
       );
-      const branchGroup = forkVersions[0]?.branchGroup || crypto.randomUUID();
-      const nextIndex = forkVersions.length;
-      // The new branch name = the branchGroup UUID
-      const newBranch = branchGroup;
 
-      // Tag original at this position with branchGroup if not already
-      if (forkVersions[0] && !forkVersions[0].branchGroup) {
-        await db
-          .update(chatMessages)
-          .set({ branchGroup, branchIndex: 0 })
-          .where(eq(chatMessages.id, forkVersions[0].id));
-        // Also tag its assistant response
-        const origAssistant = existing.find(
-          (m) => m.parentMessageId === forkVersions[0].id
+      let branchGroup: string;
+      let nextIndex: number;
+
+      if (sourceMsg?.branchGroup) {
+        branchGroup = sourceMsg.branchGroup;
+        const groupVersions = existing.filter(
+          (m) => m.branchGroup === branchGroup && m.role === "user"
         );
-        if (origAssistant) {
+        nextIndex = Math.max(...groupVersions.map((m) => m.branchIndex)) + 1;
+      } else {
+        branchGroup = crypto.randomUUID();
+        nextIndex = 1;
+        if (sourceMsg) {
           await db
             .update(chatMessages)
             .set({ branchGroup, branchIndex: 0 })
-            .where(eq(chatMessages.id, origAssistant.id));
+            .where(eq(chatMessages.id, sourceMsg.id));
+          const origAssistant = existing.find(
+            (m) => m.parentMessageId === sourceMsg.id
+          );
+          if (origAssistant) {
+            await db
+              .update(chatMessages)
+              .set({ branchGroup, branchIndex: 0 })
+              .where(eq(chatMessages.id, origAssistant.id));
+          }
         }
       }
+      const newBranch = crypto.randomUUID();
 
       // Insert edited user message on the NEW branch
       const [newUserMsg] = await db
@@ -120,7 +128,7 @@ If the context is not relevant to the user's question, ignore it and answer norm
         .values({
           conversationId: convId,
           role: "user",
-          content: lastUserMessage.content,
+          content: lastUserMessage.content.trim(),
           position: editPosition,
           branch: newBranch,
           branchGroup,
@@ -170,7 +178,7 @@ If the context is not relevant to the user's question, ignore it and answer norm
         .values({
           conversationId: convId,
           role: "user",
-          content: lastUserMessage.content,
+          content: lastUserMessage.content.trim(),
           position: userPos,
           branch,
         })

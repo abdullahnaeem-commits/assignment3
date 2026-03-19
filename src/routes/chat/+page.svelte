@@ -3,6 +3,9 @@
   import ChatInput from "$lib/components/ChatInput.svelte";
   import ChatSidebar from "$lib/components/ChatSidebar.svelte";
 
+  let { data } = $props();
+  const userImage = $derived(data?.user?.image ?? null);
+
   type Message = {
     id: string;
     role: "user" | "assistant";
@@ -55,30 +58,21 @@
 
     for (const pos of positions) {
       const msgs = byPos[pos];
+      // Only consider messages on the branch we're currently walking
+      const onBranch = msgs.filter((m) => m.branch === currentBranch);
+      const forked = onBranch.filter((m) => m.branchGroup);
 
-      // Check if this position has a fork (branchGroup)
-      const forked = msgs.filter((m) => m.branchGroup);
       if (forked.length > 0) {
         const bg = forked[0].branchGroup!;
         const activeIdx = activeVersions[bg] ?? latestIndex(bg);
-        const chosen = forked.find(
-          (m) => m.branchGroup === bg && m.branchIndex === activeIdx
-        );
+        const allVersions = msgs.filter((m) => m.branchGroup === bg);
+        const chosen = allVersions.find((m) => m.branchIndex === activeIdx) || forked[0];
         if (chosen) {
           result.push(chosen);
-          // Switch current branch to follow the chosen fork
-          if (chosen.branchIndex === 0) {
-            currentBranch = chosen.branch; // stays "main" for original
-          } else {
-            currentBranch = chosen.branch; // the branchGroup UUID for edits
-          }
+          currentBranch = chosen.branch;
         }
-      } else {
-        // Non-forked position: only show if it belongs to current branch
-        const matching = msgs.filter((m) => m.branch === currentBranch);
-        if (matching.length > 0) {
-          result.push(matching[0]);
-        }
+      } else if (onBranch.length > 0) {
+        result.push(onBranch[0]);
       }
     }
 
@@ -295,7 +289,7 @@
           messages: [...contextMsgs, { role: "user", content: newContent }],
           conversationId: activeConversationId,
           editPosition: msg.position,
-          currentBranch: activeBranch,
+          currentBranch: msg.branch,
         }),
       });
 
@@ -489,6 +483,7 @@
           <ChatMessage
             role={message.role}
             content={message.content}
+            {userImage}
             isLast={i === visibleMessages.length - 1}
             {isLoading}
             isStreaming={streamingMessageId === message.id}
