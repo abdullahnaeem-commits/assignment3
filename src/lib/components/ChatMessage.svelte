@@ -10,6 +10,7 @@
     timestamp,
     attachments,
     ragSources,
+    userImage,
     onedit,
     onregenerate,
     versionCount = 1,
@@ -24,6 +25,7 @@
     timestamp?: string;
     attachments?: string[];
     ragSources?: Record<string, string>; // filename -> documentId
+    userImage?: string | null;
     onedit?: (newContent: string) => void;
     onregenerate?: () => void;
     versionCount?: number;
@@ -101,11 +103,15 @@
     <!-- Avatar -->
     <div class="flex-shrink-0 mt-1">
       {#if isUser}
-        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-        </div>
+        {#if userImage}
+          <img src={userImage} alt="You" class="w-8 h-8 rounded-full shadow-lg shadow-blue-500/20 object-cover" referrerpolicy="no-referrer" />
+        {:else}
+          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </div>
+        {/if}
       {:else}
         <div class="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500/20 to-blue-500/20 border border-white/10 flex items-center justify-center">
           <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -118,7 +124,7 @@
     <div class="min-w-0">
     <div
       class="px-4 py-3 rounded-2xl {isUser
-        ? 'bg-gradient-to-r from-blue-500 to-violet-600 text-white rounded-br-md shadow-lg shadow-blue-500/20'
+        ? 'bg-gradient-to-r from-blue-500 to-violet-600 text-white rounded-br-md shadow-lg shadow-blue-500/20 w-fit ml-auto'
         : 'bg-white/10 backdrop-blur text-gray-100 rounded-bl-md border border-white/10'}"
     >
       {#if !isUser}
@@ -148,7 +154,7 @@
           </button>
         </div>
       {:else if isUser}
-        <div class="text-sm leading-relaxed whitespace-pre-wrap">{content}</div>
+        <div class="text-sm leading-relaxed whitespace-pre-wrap">{content.trim()}</div>
         {#if attachments && attachments.length > 0}
           <div class="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-white/20">
             {#each attachments as filename}
